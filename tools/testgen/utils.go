@@ -5,8 +5,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 )
+
+// systemLogAddress is the address native EIP-7708 transfer logs are emitted from.
+var systemLogAddress = params.SystemAddress
 
 func checkHeaderRLP(t *T, n uint64, got []byte) error {
 	head := t.chain.GetBlock(int(n)).Header()
@@ -114,6 +118,21 @@ func getRevertingContract() *hexutil.Bytes {
 	//	}
 	//}
 	return hex2Bytes("608060405260006042576040517f08c379a0000000000000000000000000000000000000000000000000000000008152600401603990609d565b60405180910390fd5b005b600082825260208201905092915050565b7f416c7761797320726576657274696e6720636f6e747261637400000000000000600082015250565b600060896019836044565b91506092826055565b602082019050919050565b6000602082019050818103600083015260b481607e565b905091905056fea264697066735822122005cbbbc709291f66fadc17416c1b0ed4d72941840db11468a21b8e1a0362024c64736f6c63430008120033")
+}
+
+// getEthCallForwarder forwards msg.value with all remaining gas. The Solidity
+// `send` in getEthForwarder forwards only the 2300 gas stipend, which no
+// longer covers a value transfer under the Amsterdam gas repricing.
+//
+//	PUSH1 0; PUSH1 0; PUSH1 0; PUSH1 0     ; ret/arg mem ranges
+//	CALLVALUE                              ; value
+//	PUSH1 4; CALLDATALOAD                  ; to (abi address arg)
+//	GAS; CALL                              ; forward with all gas
+//	PUSH1 0x16; JUMPI                      ; jump to STOP on success
+//	PUSH1 0; PUSH1 0; REVERT
+//	JUMPDEST; STOP
+func getEthCallForwarder() *hexutil.Bytes {
+	return hex2Bytes("6000600060006000346004355af160165760006000fd5b00")
 }
 
 func getEthForwarder() *hexutil.Bytes {
